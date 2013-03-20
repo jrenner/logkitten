@@ -5,11 +5,10 @@ __version__ = '0.001'
 import sys
 import re
 import curses
-import curses.textpad as textpad
 import textwrap
 import time
 import logging as log
-from search_filter import SearchFilter
+
 
 log.basicConfig(filename='kitten.log', filemode="w", level=log.DEBUG)
 
@@ -19,20 +18,7 @@ with open("logs.txt", "r") as logsfile:
     test_cat = logsfile.read()
 LOGLINES = test_cat.split('\n')
 FIRST_ROW_AT = 5
-EDIT_FIELDS = {'level': (1, 0),
-               'pid_min': (2, 0),
-               'pid_max': (2, 16),
-               'tag': (3, 0),
-               'text': (4, 0)
-               }
-EDIT_FORMS = {'level': "",
-              'pid_min': "",
-              'pid_max': "",
-              'tag': "",
-              'text': ""
-              }
 
-EDIT_FIELD_LIST = ['level', 'pid_min', 'pid_max', 'tag', 'text']
 editing_field = None
 
 # define regex
@@ -45,15 +31,7 @@ RE_PID = re.compile(r"[0-9]+")
 #### globals
 num_rows_to_print = 0 # automatically set based on terminal height later
 skip_to_row = 0
-
-
-class EditField():
-    def __init__(self, name, width):
-        self.name = name
-        self.width = width
-
-    def get_form_contents(self):
-        return None
+edit_fields = {}
 
 
 class LogKitten():
@@ -201,19 +179,15 @@ def process_input(win):
         cur_x -= 1
     elif c == curses.KEY_RIGHT:
         cur_x += 1
-    elif c == ord('\t'):
-        stdscr.clear()
-        if not editing_field:
-            editing_field = EDIT_FIELD_LIST[0]
-        else:
-            next_index = EDIT_FIELD_LIST.index(editing_field) + 1
-            if next_index > len(EDIT_FIELD_LIST) - 1:
-                next_index = 0
-            editing_field = EDIT_FIELD_LIST[next_index]
-    elif c == 27:  # ESCAPE KEY
-        stdscr.clear()
-        editing_field = None
-        stdscr.move(cur_x, cur_y)
+    # edit texts
+    else:
+        for edit_field in edit_fields.values():
+            if 0 <= c < 256:
+                if chr(c).lower() == edit_field.hotkey.lower():
+                    edit_field.edit()
+                    stdscr.clear()
+
+
 
 
 def skip_page(direction):
@@ -238,37 +212,6 @@ def constrain_yx_to_boundaries(y, x):
     return y, x
 
 
-def initialize_colors():
-    global BG_COLOR, WHITE, BLACK, RED, BLUE, GREEN, YELLOW, MAGENTA, CYAN
-    global BOLD, STANDOUT, UNDERLINE, REVERSE
-
-    # Init colors
-    BG_COLOR = curses.COLOR_BLACK
-    curses.init_pair(1, curses.COLOR_WHITE, BG_COLOR)
-    curses.init_pair(2, curses.COLOR_BLACK, BG_COLOR)
-    curses.init_pair(3, curses.COLOR_RED, BG_COLOR)
-    curses.init_pair(4, curses.COLOR_GREEN, BG_COLOR)
-    curses.init_pair(5, curses.COLOR_BLUE, BG_COLOR)
-    curses.init_pair(6, curses.COLOR_YELLOW, BG_COLOR)
-    curses.init_pair(7, curses.COLOR_MAGENTA, BG_COLOR)
-    curses.init_pair(8, curses.COLOR_CYAN, BG_COLOR)
-
-    # Assign colors
-    WHITE = curses.color_pair(1)
-    BLACK = curses.color_pair(2)
-    RED = curses.color_pair(3)
-    GREEN = curses.color_pair(4)
-    BLUE = curses.color_pair(5)
-    YELLOW = curses.color_pair(6)
-    MAGENTA = curses.color_pair(7)
-    CYAN = curses.color_pair(8)
-
-    BOLD = curses.A_BOLD
-    STANDOUT = curses.A_STANDOUT
-    UNDERLINE = curses.A_UNDERLINE
-    REVERSE = curses.A_REVERSE
-
-
 def process_log():
     log = re.findall(r"[VDIWE]/.*", test_cat)
     log_holder = LogHolder()
@@ -283,43 +226,31 @@ def get_number_of_rows_to_print():
     return max_y - 7
 
 
-def get_edit_field_form_start(edit_field):
-    y, x = EDIT_FIELDS[edit_field]
-    x += len(edit_field) + 1  # plus one for the colon that gets added
-    return y, x
-
-
-def print_edit_field(field, width):
-    for field in EDIT_FIELDS:
-        fy, fx = EDIT_FIELDS[field]
-        field_name = field.upper() + ":"
-        stdscr.addstr(fy, fx, field_name, WHITE ^ BOLD)
-        stdscr.addstr(" " * width, WHITE ^ UNDERLINE)
-        form_y, form_x = get_edit_field_form_start(field)
-        stdscr.addstr(form_y, form_x, EDIT_FORMS[field], YELLOW)
-
-
-def edit_textbox(field_name):
-    textbox = textpad.Textbox(stdscr)
-    stdscr.clear()
-    textbox.edit()
-    EDIT_FORMS[field_name] = textbox.gather()
-
 def main(wrapped_stdscr):
+
+    # initialization
     global stdscr, max_x, max_y, cur_x, cur_y, num_rows_to_print, filter
     global editing_field
     stdscr = wrapped_stdscr
-    initialize_colors()
     stdscr.nodelay(1) # don't block on getch()
     max_y, max_x = stdscr.getmaxyx()
     tick_length = 1.0 / 60.0
     cur_y, cur_x = 0, 0
     kitten = LogKitten()
     filter = SearchFilter()
-    #filter.set_pid_filter(487)
-    #filter.set_level_filter('W')
-    #filter.set_tag_filter('Batt')
-    filter.set_text_filter('(?i)htc')
+
+    edit_fields['pid_min'] = EditField(1, 0, 'pid_min', 5, stdscr, 'm',
+                                       NUMERICAL)
+    edit_fields['pid_max'] = EditField(1, 30, 'pid_max', 5, stdscr, 'x',
+                                       NUMERICAL)
+    edit_fields['tag'] = EditField(2, 0, 'tag', 24, stdscr, 'g',
+                                   TEXTUAL)
+    edit_fields['level'] = EditField(2, 30, 'level', 1, stdscr, 'l',
+                                     LOG_LEVEL)
+    edit_fields['text'] = EditField(3, 0, 'text', 24, stdscr, 't',
+                                    TEXTUAL)
+
+
     while True:
         start_time = time.time()
         num_rows_to_print = get_number_of_rows_to_print()
@@ -328,30 +259,31 @@ def main(wrapped_stdscr):
         cur_y, cur_x = constrain_yx_to_boundaries(cur_y, cur_x)
         first_row = skip_to_row
         last_row = skip_to_row + num_rows_to_print
-        stdscr.addstr(0, 0, "TOTAL unfiltered entries: %d, Showing: %d -> %d" %
+        stdscr.addstr(0, 0, "Unfiltered entries: %d, showing: %d -> %d" %
                      (kitten.count_all_entries(), first_row, last_row), WHITE)
         stdscr.addstr(1, 0, "Filter -- ", BLUE ^ BOLD)
-        print_edit_field('level', 1)
-        print_edit_field('tag', 24)
-        print_edit_field('pid_min', 5)
-        print_edit_field('pid_max', 5)
-        print_edit_field('text', 24)
+        for edit in edit_fields.values():
+            edit.draw()
         y, x = FIRST_ROW_AT, 0
 
-        # test filter
-        if editing_field:
-            text = "EDITING: " + editing_field.upper()
-            stdscr.addstr(0, (max_x - len(text) - 1), text, YELLOW ^ BOLD)
-            fy, fx = get_edit_field_form_start(editing_field)
-            stdscr.move(fy, fx)
-            edit_textbox(editing_field)
-            editing_field = None
+        #filter
+        pid_min = edit_fields['pid_min'].form_contents
+        pid_max = edit_fields['pid_max'].form_contents
+        filter.set_pid_filter(pid_min, pid_max)
+        filter.set_level_filter(edit_fields['level'].form_contents)
+        filter.set_tag_filter(edit_fields['tag'].form_contents)
+        filter.set_text_filter(edit_fields['text'].form_contents)
+        #filter.log_filters()
 
-        else:
-            kitten.print_logs(y, x, filter)
-            stdscr.move(cur_y, cur_x)
+        kitten.print_logs(y, x, filter)
+        stdscr.move(cur_y, cur_x)
         stdscr.refresh()
         #log.debug("main loop time: %.3f seconds" % (time.time() - start_time))
 
 if __name__ == "__main__":
+    curses.initscr()
+    curses.start_color()
+    from constants import *
+    from search_filter import SearchFilter
+    from edit_field import EditField
     curses.wrapper(main)

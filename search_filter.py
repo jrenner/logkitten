@@ -1,11 +1,13 @@
 __author__ = 'jrenner'
 
 import re
+import logging as log
 
 class SearchFilter():
     """
     An object that will go through log entries to see if they pass the filter
     """
+    # TODO add time filter
     def __init__(self):
         self.pid_min = None
         self.pid_max = None
@@ -25,19 +27,28 @@ class SearchFilter():
             self.pid_max = high
 
     def set_level_filter(self, level):
-        assert type(level) is str
-        assert len(level) is 1
         self.level = level
 
     def set_tag_filter(self, tag_regex):
         """a regex pattern"""
+        self.tag = tag_regex
         tag = r"%s" % tag_regex
-        self.tag = re.compile(tag)
+        self.tag_re = re.compile(tag)
 
     def set_text_filter(self, text_regex):
         """a regex pattern"""
+        self.text = text_regex
         text = r"%s" % text_regex
-        self.text = re.compile(text)
+        self.text_re = re.compile(text)
+
+    def log_filters(self):
+        msg = "Filters:\n"
+        msg += "\t pid_min: " + str(self.pid_min) + "\n"
+        msg += "\t pid_max: " + str(self.pid_max) + "\n"
+        msg += "\t tag: " + str(self.tag) + "\n"
+        msg += "\t text: " + str(self.text) + "\n"
+        msg += "\t level: " + str(self.level) + "\n"
+        log.debug(msg)
 
     def entry_passes_filter(self, entry):
         assert 'LogEntry' in str(entry.__class__)
@@ -55,14 +66,20 @@ class SearchFilter():
     def passes_pid_filter(self, entry):
         if not self.pid_min:
             return True
-        if self.pid_min <= entry.pid <= self.pid_max:
+        low = int(self.pid_min)
+        if not self.pid_max:
+            high = low
+        else:
+            high = int(self.pid_max)
+        if low <= entry.pid <= high:
             return True
         return False
 
     def passes_tag_filter(self, entry):
         if not self.tag:
             return True
-        found = self.tag.search(entry.tag)
+        quit()
+        found = self.tag_re.search(entry.tag)
         if found:
             return True
         return False
@@ -70,7 +87,7 @@ class SearchFilter():
     def passes_text_filter(self, entry):
         if not self.text:
             return True
-        found = self.text.search(entry.text)
+        found = self.text_re.search(entry.text)
         if found:
             return True
         return False
