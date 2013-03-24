@@ -23,9 +23,9 @@ class EditField():
         win.addstr(self.hotkey.lower(), WHITE ^ BOLD)
         win.addstr(")", MAGENTA ^ BOLD)
         win.addstr(self.field.upper(), WHITE)
-        win.addstr(":", WHITE ^ BOLD)
+        win.addstr(": ", WHITE ^ BOLD)
         if self.form_contents:
-            win.addnstr("(" + self.form_contents + ")", self.form_width + 2, CYAN ^ BOLD)
+            win.addnstr(self.form_contents, self.form_width, CYAN ^ BOLD)
 
     def get_drawn_field(self):
         # just used to get the length
@@ -56,6 +56,9 @@ class EditField():
                 new_contents += char
         self.form_contents = new_contents
         if self.accepted_input == LOG_LEVEL:
+            # sort the string by alphabet
+            DO NOT SORT BY ALPHA, SORT BY LOG LEVEL
             self.form_contents = self.form_contents.upper()
+            self.form_contents = "".join(sorted(list(self.form_contents)))
         if self.form_contents == "":
             self.form_contents = None

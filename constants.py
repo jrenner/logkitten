@@ -30,4 +30,4 @@ REVERSE = curses.A_REVERSE
 
 NUMERICAL = digits
 TEXTUAL = letters + punctuation + digits
-LOG_LEVEL = "VDWIEvdwie"
+LOG_LEVEL = "VDWIEvdwie+"

@@ -2,6 +2,7 @@ __author__ = 'jrenner'
 
 import re
 import logging as log
+import constants
 
 class SearchFilter():
     """
@@ -27,19 +28,25 @@ class SearchFilter():
             self.pid_max = high
 
     def set_level_filter(self, level):
-        self.level = level
+        if level is None:
+            self.level = None
+        else:
+            for char in level:
+                assert(char in constants.LOG_LEVEL)
+            assert(len(level) <= 5)
+            self.level = level
 
     def set_tag_filter(self, tag_regex):
         """a regex pattern"""
         self.tag = tag_regex
         tag = r"%s" % tag_regex
-        self.tag_re = re.compile(tag)
+        self.tag_re = re.compile(tag, re.IGNORECASE)
 
     def set_text_filter(self, text_regex):
         """a regex pattern"""
         self.text = text_regex
         text = r"%s" % text_regex
-        self.text_re = re.compile(text)
+        self.text_re = re.compile(text, re.IGNORECASE)
 
     def log_filters(self):
         msg = "Filters:\n"
@@ -51,7 +58,6 @@ class SearchFilter():
         log.debug(msg)
 
     def entry_passes_filter(self, entry):
-        assert 'LogEntry' in str(entry.__class__)
         individual_filters = [
             self.passes_pid_filter,
             self.passes_tag_filter,
@@ -78,7 +84,6 @@ class SearchFilter():
     def passes_tag_filter(self, entry):
         if not self.tag:
             return True
-        quit()
         found = self.tag_re.search(entry.tag)
         if found:
             return True
@@ -95,7 +100,7 @@ class SearchFilter():
     def passes_level_filter(self, entry):
         if not self.level:
             return True
-        if self.level == entry.level:
+        if entry.level in self.level:
             return True
         return False
 
