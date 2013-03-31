@@ -57,8 +57,11 @@ class EditField():
         self.form_contents = new_contents
         if self.accepted_input == LOG_LEVEL:
             # sort the string by alphabet
-            DO NOT SORT BY ALPHA, SORT BY LOG LEVEL
             self.form_contents = self.form_contents.upper()
-            self.form_contents = "".join(sorted(list(self.form_contents)))
+            def log_level_key(char):
+                levels = "VDIWE"
+                return levels.index(char)
+            self.form_contents = "".join(sorted(list(self.form_contents),
+                                                key=log_level_key))
         if self.form_contents == "":
             self.form_contents = None
