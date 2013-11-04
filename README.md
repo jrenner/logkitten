@@ -1,3 +1,5 @@
+## This project is incomplete and only partially working
+
 logkitten
 =========
 
